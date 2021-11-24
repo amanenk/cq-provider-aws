@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
@@ -132,6 +133,7 @@ type Services struct {
 	Waf                  WafClient
 	WafV2                WafV2Client
 	GuardDuty            GuardDutyClient
+	DMS                  DMSClient
 }
 type ServicesAccountRegionMap map[string]map[string]*Services
 
@@ -388,6 +390,7 @@ func initServices(region string, c aws.Config) Services {
 		SQS:                  sqs.NewFromConfig(awsCfg),
 		Waf:                  waf.NewFromConfig(awsCfg),
 		WafV2:                wafv2.NewFromConfig(awsCfg),
+		DMS:                  databasemigrationservice.NewFromConfig(awsCfg),
 	}
 }
 
