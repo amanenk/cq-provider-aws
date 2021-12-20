@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -173,6 +174,13 @@ func (s *ServicesManager) InitServicesForAccountAndRegion(accountId string, regi
 	s.services[accountId][region] = &services
 }
 
+// Metadata is a structure that stores useful non-sensitive data about client that is used in fetch summary
+type Metadata struct {
+	CredentialsSource string `json:"credentials_source"`
+	CredentialsHash   string `json:"credentials_hash"`
+	AccountId         string `json:"account_id"`
+}
+
 type Client struct {
 	// Those are already normalized values after configure and this is why we don't want to hold
 	// config directly.
@@ -187,6 +195,7 @@ type Client struct {
 	AccountID            string
 	Region               string
 	AutoscalingNamespace string
+	metadata             []Metadata
 }
 
 // S3Manager This is needed because https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager
@@ -219,6 +228,17 @@ func NewAwsClient(logger hclog.Logger, accounts []Account, regions []string) Cli
 }
 func (c *Client) Logger() hclog.Logger {
 	return &awsLogger{c.logger, c.Accounts}
+}
+
+func (c *Client) GetMetadata() interface{} {
+	return struct {
+		Accounts []Metadata `json:"accounts"`
+		Regions  []string   `json:"regions"`
+	}{
+		Accounts: c.metadata,
+		Regions:  c.regions,
+	}
+
 }
 
 func (c *Client) Services() *Services {
@@ -375,6 +395,17 @@ func Configure(logger hclog.Logger, providerConfig interface{}) (schema.ClientMe
 			client.Region = client.regions[0]
 			client.Accounts = append(client.Accounts, Account{ID: *output.Account, RoleARN: *output.Arn})
 		}
+
+		creds, err := awsCfg.Credentials.Retrieve(ctx)
+		if err != nil {
+			return nil, err
+		}
+		credsSha256 := sha256.Sum256([]byte(fmt.Sprintf("%s:%s", creds.AccessKeyID, creds.SecretAccessKey)))
+		client.metadata = append(client.metadata, Metadata{
+			AccountId:         obfuscateAccountId(*output.Account),
+			CredentialsHash:   fmt.Sprintf("%x", credsSha256),
+			CredentialsSource: creds.Source,
+		})
 		for _, region := range client.regions {
 			client.ServicesManager.InitServicesForAccountAndRegion(*output.Account, region, initServices(region, awsCfg))
 		}

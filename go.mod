@@ -145,3 +145,7 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
+
+replace (
+	github.com/cloudquery/cq-provider-sdk => ../cq-provider-sdk
+)
